@@ -1,0 +1,50 @@
+name: Build and Push Multi-Arch Image
+on: [push]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Install Qpid Proton Python (for different architectures)
+        run: |
+          # Install dependencies
+          sudo apt update
+          sudo apt install -y build-essential python3-dev
+
+          # Get the architecture
+          ARCH=$(uname -m)
+
+          # Install Qpid Proton Python based on architecture
+          if [ "$ARCH" == "amd64" ]; then
+            echo "Installing Qpid Proton Python for amd64 architecture"
+            pip3 install qpid-proton
+          elif [ "$ARCH" == "arm64" ]; then
+            echo "Installing Qpid Proton Python for arm64 architecture"
+            pip3 install qpid-proton
+          elif [ "$ARCH" == "s390x" ]; then
+            echo "Installing Qpid Proton Python for s390x architecture"
+            pip3 install qpid-proton
+          else
+            echo "Unsupported architecture: $ARCH"
+            exit 1
+          fi
+
+      - name: Login to Quay
+        run: |
+          echo "${{ secrets.QUAY_TOKEN }}" | docker login quay.io -u "${{ secrets.QUAY_USER }}" --password-stdin
+
+      - name: Build and Push Multi-Arch Image
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64,linux/s390x \
+            -t quay.io/rhn-support-rjauhari/quiver:latest \
+            --push .
